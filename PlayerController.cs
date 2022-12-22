@@ -6,19 +6,27 @@ public class PlayerController : MonoBehaviour
 {
 
     [SerializeField] Transform playerCamera = null;
-    [SerializeField] Transform playerArm = null;
-    [SerializeField] float mouseSensitivity = 1f;
-    float cameraPitch = 0.0f; 
+    [SerializeField] float mouseSensitivityX = 1f;
+    [SerializeField] float mouseSensitivityY = 1f;
+    float xRotation; 
+    float yRotation; 
+    Vector2 currentDirVelocity = Vector2.zero; 
+
+    
+    [SerializeField] Transform groundCheck;
+    [SerializeField] LayerMask ground1;  
+    bool isGrounded;
+
+
     [SerializeField] bool lockCursor = true; 
+
     [SerializeField] float playerSpeed = 1f; 
     CharacterController controller = null;
     [SerializeField][Range(0.0f, 0.5f)] float moveSmoothTime = 0.3f; 
-    [SerializeField][Range(0.0f, 0.5f)] float mouseSmoothTime = 0.03f; 
+   
     [SerializeField] float gravity = -13.0f; 
     Vector2 currentDir = Vector2.zero; 
-    Vector2 currentDirVelocity = Vector2.zero; 
-    Vector2 currentMouseDelta = Vector2.zero;
-    Vector2 currentMouseDeltaVelocity = Vector2.zero; 
+    public bool isSprinting = false;
 
     float velocityY = 0.0f; 
     // Start is called before the first frame update
@@ -35,7 +43,7 @@ public class PlayerController : MonoBehaviour
     }
 
     // Update is called once per frame
-    void Update()
+    void FixedUpdate()
     {
         UpdateMouseLook();
         UpdateMovement();
@@ -43,32 +51,40 @@ public class PlayerController : MonoBehaviour
         
     }
     void UpdateMouseLook() {
-        Vector2 targetMouseDelta = new Vector2(Input.GetAxis("Mouse X"), Input.GetAxis("Mouse Y")); 
+        float mouseX = Input.GetAxis("Mouse X") * Time.deltaTime * mouseSensitivityX;
+        float mouseY = Input.GetAxis("Mouse Y") * Time.deltaTime * mouseSensitivityY;
 
-        currentMouseDelta = Vector2.SmoothDamp(currentMouseDelta, targetMouseDelta, ref currentMouseDeltaVelocity, mouseSmoothTime);
-        cameraPitch -= currentMouseDelta.y * mouseSensitivity; 
+        yRotation += mouseX; 
+        xRotation -= mouseY; 
+        xRotation = Mathf.Clamp(xRotation, -90f, 90f); 
 
-        cameraPitch = Mathf.Clamp(cameraPitch, -90.0f, 90.0f); 
-
-        playerCamera.localEulerAngles = Vector3.right * cameraPitch;
-
-        transform.Rotate(Vector3.up * currentMouseDelta.x * mouseSensitivity);
+        transform.rotation = Quaternion.Euler(xRotation, yRotation, 0);
+         
     
 
     }
     void UpdateMovement() {
+        isGrounded = Physics.CheckSphere(groundCheck.position, 0.2f, ground1);
+        velocityY += gravity * 2f * Time.deltaTime;
         Vector2 targetDir = new Vector2(Input.GetAxisRaw("Horizontal"), Input.GetAxisRaw("Vertical"));
         targetDir.Normalize(); 
         currentDir = Vector2.SmoothDamp(currentDir, targetDir, ref currentDirVelocity, moveSmoothTime); 
 
-        if(controller.isGrounded) {
-            velocityY = 0.0f; 
+
+        if(Input.GetKey(KeyCode.LeftShift)) {
+            isSprinting = true;
+        } else {
+            isSprinting = false; 
         }
-        velocityY += gravity * Time.deltaTime;
-        if(Input.GetKeyDown(KeyCode.LeftShift)) {
-            playerSpeed *= 1.5f; 
-        }
+
         Vector3 velocity = (transform.forward * targetDir.y + transform.right * targetDir.x) * playerSpeed + Vector3.up * velocityY;
+        if(isSprinting) {
+            velocity *= 1.5f;  
+        }
         controller.Move(velocity * Time.deltaTime); 
+        if(isGrounded! && controller.velocity.y < -1f)
+        {
+            velocityY = -8f;
+        }
     }
 }
